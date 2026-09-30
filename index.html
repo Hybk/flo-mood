@@ -1,4 +1,5 @@
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Flo Moods</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -31,12 +32,13 @@ body{
   align-items:center;
   justify-content:center;
   gap:clamp(20px,4vh,40px);
+  -webkit-user-select:none;user-select:none;
 }
 
 /* Flo */
 .flo-wrap{position:relative;width:var(--flo-w);height:calc(var(--flo-w)*1.25);margin-top:clamp(44px,7vh,72px)}
 .layer{position:absolute;inset:0}
-.flo-btn{display:block;width:100%;height:100%;padding:0;border:0;background:none;cursor:pointer;border-radius:24px;-webkit-tap-highlight-color:transparent}
+.flo-btn{display:block;width:100%;height:100%;padding:0;border:0;background:none;cursor:pointer;border-radius:24px;-webkit-tap-highlight-color:transparent;touch-action:none}
 .idle,.react{display:block;width:100%;height:100%;transform-origin:50% 93%}
 .flo-svg,.shadow-svg{display:block;width:100%;height:100%;overflow:visible}
 
@@ -108,6 +110,7 @@ body{
   color:var(--ink);
 }
 .mood>span{grid-area:1/1;justify-self:center;white-space:nowrap}
+.hint{margin:0;max-width:300px;font-size:13px;line-height:1.5;color:#71717A;text-align:center;text-wrap:balance}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 @media (max-width:560px){
@@ -167,20 +170,29 @@ body{
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
     </button>
   </div>
+  <p class="hint">Tap Flo to poke. Double-tap to spin. Flick the tabs off its head.</p>
   <div class="sr" id="live" aria-live="polite"></div>
 </main>
 
 <script>
 (function () {
   var MOODS = [
-    { name: 'Breezy', fill: '#3DBE6E', eyes: 'happy', mouth: 'big', cheeks: 1, pile: 0, idle: 'float', quip: 'Ahh. Room to breathe.' },
-    { name: 'Comfy', fill: '#A3CF3F', eyes: 'open', mouth: 'smile', cheeks: 1, pile: 1, idle: 'float', quip: 'Feeling light. Nice work.' },
-    { name: 'Busy', fill: '#F4C534', eyes: 'open', mouth: 'flat', pile: 2, idle: 'none', quip: 'Getting a little busy in here…' },
-    { name: 'Crowded', fill: '#F48A2A', eyes: 'worried', mouth: 'wobble', sweat: 1, pile: 3, idle: 'none', quip: 'It’s getting crowded. Tidy up?' },
-    { name: 'Overloaded', fill: '#E5483B', eyes: 'dizzy', mouth: 'open', sweat: 1, steam: 1, pile: 4, idle: 'shake', quip: 'Too… many… tabs!' },
-    { name: 'Napping', fill: '#E5483B', eyes: 'closed', mouth: 'o', zzz: 1, pile: 4, idle: 'breathe', quip: 'Zzz… wake me when you’re ready.' },
-    { name: 'Off duty', fill: '#BDB6AC', eyes: 'flat', mouth: 'flat', pile: 0, idle: 'none', quip: 'I’m off duty. Flip the switch.' }
+    { name: 'Breezy', fill: '#3DBE6E', eyes: 'happy', mouth: 'big', cheeks: 1, pile: 0, idle: 'float', quips: ['Ahh. Room to breathe.', 'Clean slate. Love it.', 'So much space up here.', 'Is it always this quiet?', 'Nothing on my head. Bliss.'] },
+    { name: 'Comfy', fill: '#A3CF3F', eyes: 'open', mouth: 'smile', cheeks: 1, pile: 1, idle: 'float', quips: ['Feeling light. Nice work.', 'One tab. I can carry that.', 'This is my happy weight.', 'Cozy, not crowded.', 'One hat. Very stylish.'] },
+    { name: 'Busy', fill: '#F4C534', eyes: 'open', mouth: 'flat', pile: 2, idle: 'none', quips: ['Getting a little busy in here…', 'Two tabs. I’m watching them.', 'Still fine. Mostly fine.', 'Do we need both of these?', 'Balancing act in progress.'] },
+    { name: 'Crowded', fill: '#F48A2A', eyes: 'worried', mouth: 'wobble', sweat: 1, pile: 3, idle: 'none', quips: ['It’s getting crowded. Tidy up?', 'My head is a filing cabinet now.', 'Three tabs. I’m sweating.', 'Close something. Anything.', 'Wobbling a bit up here…'] },
+    { name: 'Overloaded', fill: '#E5483B', eyes: 'dizzy', mouth: 'open', sweat: 1, steam: 1, pile: 4, idle: 'shake', quips: ['Too… many… tabs!', 'I can’t see over the pile!', 'Is all of this research?', 'Mayday! Mayday!', 'Flick a few off, please!'] },
+    { name: 'Napping', fill: '#E5483B', eyes: 'closed', mouth: 'o', zzz: 1, pile: 4, idle: 'breathe', quips: ['Zzz… wake me when you’re ready.', 'Five more minutes…', 'Mmf. Tabs later.', 'Dreaming of an empty browser…', 'Shh. Recharging.'] },
+    { name: 'Off duty', fill: '#BDB6AC', eyes: 'flat', mouth: 'flat', pile: 0, idle: 'none', quips: ['I’m off duty. Flip the switch.', 'Clocked out. See you tomorrow.', 'Not now. On break.', 'Gone fishing.', 'Out of office.'] }
   ];
+  var SPIN_LINES = ['Wheee!', 'Again! Again!', 'Whoa. Head rush.', 'Did you see that?', 'Nailed the landing.'];
+  var FLICK_LINES = ['Phew, thanks.', 'Lighter already.', 'Bye, tab!', 'One down.', 'Much better.'];
+  var lastLine = '';
+  function pickLine(list) {
+    var opts = list.filter(function (l) { return l !== lastLine; });
+    lastLine = opts[Math.floor(Math.random() * opts.length)];
+    return lastLine;
+  }
   var $ = function (id) { return document.getElementById(id); };
   var RM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -246,6 +258,7 @@ body{
       p.v[t.prop] = val; p.dirty = true;
       if (done) { tweens.splice(i, 1); if (p.tw[t.prop] === t) delete p.tw[t.prop]; }
     }
+    updateLook(now);
     for (var n = 0; n < parts.length; n++) if (parts[n].dirty) { parts[n].render(); parts[n].dirty = false; }
     if (colT && now >= colT.start) {
       if (!colT.from) colT.from = bodyCol.slice();
@@ -264,6 +277,27 @@ body{
   var sweat = add(new Part($('sweat'), 99, 42, 0));
   var zzz = add(new Part($('zzz'), 104, 4, 0));
   var featEls = Array.prototype.slice.call(document.querySelectorAll('[data-f]'));
+  var pupils = document.querySelector('[data-f="eOpen"]');
+
+  // where Flo is looking: -1..1 on each axis
+  var look = { x: 0, y: 0 }, lookTarget = { x: 0, y: 0 }, wander = { x: 0, y: 0 };
+  var lastPointer = -1e9, lastInteract = 0, faceOverride = false;
+  function aimAt(cx, cy) {
+    var r = $('flo').getBoundingClientRect();
+    var dx = cx - (r.left + r.width * .5), dy = cy - (r.top + r.height * (92 / 150));
+    var len = Math.hypot(dx, dy) || 1, f = Math.min(1, len / (r.width * .9));
+    lookTarget.x = dx / len * f; lookTarget.y = dy / len * f * .9;
+  }
+  function updateLook(now) {
+    var e = MOODS[cur].eyes;
+    var ignoring = !faceOverride && (e === 'closed' || e === 'flat');
+    var tgt = ignoring ? { x: 0, y: 0 } : now - lastPointer < 3000 ? lookTarget : wander;
+    var nx = look.x + (tgt.x - look.x) * .14, ny = look.y + (tgt.y - look.y) * .14;
+    if (Math.abs(nx - look.x) < .001 && Math.abs(ny - look.y) < .001) return;
+    look.x = nx; look.y = ny;
+    face.v.tx = look.x * 3.2; face.v.ty = look.y * 2.2; face.dirty = true;
+    pupils.setAttribute('transform', 'translate(' + (look.x * 1.6).toFixed(2) + ' ' + (look.y * 1.3).toFixed(2) + ')');
+  }
 
   function features(m) {
     return {
@@ -331,10 +365,19 @@ body{
   var BODY = {
     morph: [['none', 0], ['scale(1.08,.9)', .18], ['translateY(-3.5%) scale(.95,1.07)', .46], ['translateY(0) scale(1.03,.97)', .72], ['none', 1]],
     jump: [['none', 0], ['scale(1.15,.85)', .2], ['translateY(-9%) scale(.92,1.1)', .5], ['translateY(0) scale(1.08,.92)', .8], ['none', 1]],
-    poke: [['none', 0], ['scale(1.14,.86)', .3], ['scale(.93,1.08)', .6], ['none', 1]]
+    poke: [['none', 0], ['scale(1.14,.86)', .3], ['scale(.93,1.08)', .6], ['none', 1]],
+    // every frame uses the same function list so rotateY interpolates through two full turns
+    spin: [
+      ['perspective(600px) translateY(0%) rotateY(0deg) scale(1,1)', 0],
+      ['perspective(600px) translateY(0%) rotateY(0deg) scale(1.12,.88)', .14],
+      ['perspective(600px) translateY(-12%) rotateY(360deg) scale(.94,1.08)', .5],
+      ['perspective(600px) translateY(0%) rotateY(720deg) scale(1.1,.9)', .82],
+      ['perspective(600px) translateY(0%) rotateY(720deg) scale(1,1)', 1]
+    ],
+    wiggle: [['rotate(0deg)', 0], ['rotate(-4deg)', .25], ['rotate(3deg)', .55], ['rotate(-1.5deg)', .8], ['rotate(0deg)', 1]]
   };
-  var SHADOW = { morph: [1, 1.07, .86, 1.02, 1], jump: [1, 1.12, .68, 1.06, 1], poke: [1, 1.12, .95, 1] };
-  var DUR = { morph: 640, jump: 800, poke: 550 };
+  var SHADOW = { morph: [1, 1.07, .86, 1.02, 1], jump: [1, 1.12, .68, 1.06, 1], poke: [1, 1.12, .95, 1], spin: [1, 1.12, .62, 1.08, 1], wiggle: [1, .97, 1.02, .99, 1] };
+  var DUR = { morph: 640, jump: 800, poke: 550, spin: 1000, wiggle: 700 };
   var bodyAnim = null, shadowAnim = null;
   function react(kind) {
     if (RM) return;
@@ -389,7 +432,7 @@ body{
 
   function go(idx, dir) {
     var to = MOODS[idx];
-    cur = idx; tid++;
+    cur = idx; tid++; spinTok++; faceOverride = false;
     hideBubble();
     live.textContent = 'Flo feels ' + to.name + '.';
 
@@ -409,7 +452,7 @@ body{
   var pokeTok = 0;
   function poke() {
     var m = MOODS[cur], myTid = tid, my = ++pokeTok;
-    showBubble(m.quip);
+    showBubble(pickLine(m.quips));
     react(m.idle === 'shake' ? 'poke' : 'jump');
     var still = function () { return tid === myTid && pokeTok === my; };
     if (m.eyes === 'closed') {
@@ -432,18 +475,145 @@ body{
     }
   }
 
+  // spin: two turns on the spot, then a moment of dizzy eyes
+  var spinTok = 0;
+  function spin(text) {
+    var myTid = tid, my = ++spinTok;
+    var still = function () { return tid === myTid && spinTok === my; };
+    showBubble(text || pickLine(SPIN_LINES));
+    if (RM) return;
+    react('spin');
+    setTimeout(function () {
+      if (!still()) return;
+      faceOverride = true;
+      tween(face, 'sy', [[.1, 80, E.inQuad], [1, 220, E.outBack]]);
+      setFace({ eyes: 'dizzy', mouth: MOODS[cur].mouth === 'big' ? 'big' : 'wobble', cheeks: MOODS[cur].cheeks });
+    }, 820);
+    setTimeout(function () {
+      if (!still()) return;
+      faceOverride = false;
+      tween(face, 'sy', [[.1, 80, E.inQuad], [1, 220, E.outBack]]);
+      setTimeout(function () { if (still()) setFace(MOODS[cur]); }, 80);
+    }, 1800);
+  }
+
+  // flicking tabs off the pile
+  function topTab() { for (var i = 3; i >= 0; i--) if (pileOn[i]) return i; return -1; }
+  function toUnits(e) {
+    var r = $('flo').getBoundingClientRect();
+    return { x: (e.clientX - r.left) / r.width * 120, y: (e.clientY - r.top) / r.height * 150 - 30 };
+  }
+  function inPileZone(u) { return topTab() >= 0 && u.y < 22 && u.x > 26 && u.x < 94; }
+  function fling(i, vx, vy) {
+    var p = pile[i], v = p.v;
+    var dir = Math.abs(vx) > .05 ? Math.sign(vx) : (v.tx >= 0 ? 1 : -1);
+    var sp = Math.min(1.6, Math.max(.7, Math.hypot(vx, vy) / .6));
+    pileOn[i] = false;
+    tween(p, 'tx', [[v.tx + dir * 130 * sp, 650, E.outCubic]]);
+    tween(p, 'ty', [[v.ty - 30 * sp + Math.min(0, vy * 150), 240, E.outCubic], [v.ty + 110, 460, E.inQuad]]);
+    tween(p, 'rot', [[v.rot + dir * 260, 700, E.outCubic]]);
+    tween(p, 'op', [[1, 420, E.lin], [0, 260, E.lin]]);
+    // the pile now has i tabs, and moods 0–3 hold 0–3 tabs
+    go(i, -1);
+    if (i === 0) later(720, function () { spin('All clear. Wheee!'); });
+    else later(520, function () { showBubble(pickLine(FLICK_LINES)); });
+  }
+
+  var flo = $('flo'), drag = null, dragMoved = false;
+  flo.addEventListener('pointerdown', function (e) {
+    if (e.button !== 0) return;
+    var u = toUnits(e);
+    if (!inPileZone(u)) return;
+    drag = { i: topTab(), x0: u.x, y0: u.y, id: e.pointerId, moved: false, samples: [{ x: u.x, y: u.y, t: e.timeStamp }] };
+    flo.setPointerCapture(e.pointerId);
+  });
+  flo.addEventListener('pointermove', function (e) {
+    var u = toUnits(e);
+    if (!drag) { flo.style.cursor = inPileZone(u) ? 'grab' : ''; return; }
+    if (e.pointerId !== drag.id || !pileOn[drag.i]) return;
+    var dx = u.x - drag.x0, dy = u.y - drag.y0;
+    if (!drag.moved && Math.hypot(dx, dy) < 3) return;
+    drag.moved = true;
+    flo.style.cursor = 'grabbing';
+    setNow(pile[drag.i], { tx: dx, ty: dy, rot: Math.max(-30, Math.min(30, dx * .8)), op: 1 });
+    drag.samples.push({ x: u.x, y: u.y, t: e.timeStamp });
+    while (drag.samples.length > 2 && e.timeStamp - drag.samples[0].t > 90) drag.samples.shift();
+  });
+  function endDrag(e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    var d = drag; drag = null;
+    flo.style.cursor = '';
+    if (!d.moved) return;
+    dragMoved = true;
+    setTimeout(function () { dragMoved = false; }, 0);
+    if (!pileOn[d.i]) return;
+    var a = d.samples[0], b = d.samples[d.samples.length - 1], dt = Math.max(1, b.t - a.t);
+    var vx = (b.x - a.x) / dt, vy = (b.y - a.y) / dt, p = pile[d.i];
+    if (Math.hypot(p.v.tx, p.v.ty) > 20 || Math.hypot(vx, vy) > .35) fling(d.i, vx, vy);
+    else {
+      tween(p, 'tx', [[0, 380, E.outBack]]);
+      tween(p, 'ty', [[0, 380, E.outBack]]);
+      tween(p, 'rot', [[0, 380, E.outBack]]);
+    }
+  }
+  flo.addEventListener('pointerup', endDrag);
+  flo.addEventListener('pointercancel', endDrag);
+
+  // one tap pokes, a quick second tap spins
+  var lastTap = 0;
+  flo.addEventListener('click', function () {
+    if (dragMoved) return;
+    var now = performance.now();
+    if (now - lastTap < 320) { lastTap = 0; spin(); }
+    else { lastTap = now; poke(); }
+  });
+
+  // eyes follow the pointer
+  function noteInteract() { lastInteract = performance.now(); }
+  window.addEventListener('pointermove', function (e) { lastPointer = performance.now(); noteInteract(); aimAt(e.clientX, e.clientY); });
+  window.addEventListener('pointerdown', function (e) { lastPointer = performance.now(); noteInteract(); aimAt(e.clientX, e.clientY); });
+  document.documentElement.addEventListener('mouseleave', function () { lastPointer = -1e9; });
+
+  // idle life: blinks, glances, wiggles
+  function blinkOnce() { tween(face, 'sy', [[.1, 70, E.inQuad], [1, 170, E.outCubic]]); }
+  function blink() {
+    setTimeout(blink, 2600 + Math.random() * 3800);
+    if (RM || document.hidden || faceOverride || face.tw.sy) return;
+    var e = MOODS[cur].eyes;
+    if (e !== 'open' && e !== 'happy' && e !== 'worried') return;
+    blinkOnce();
+    if (Math.random() < .2) setTimeout(function () { if (!face.tw.sy && !faceOverride) blinkOnce(); }, 320);
+  }
+  function glance(points) {
+    points.forEach(function (pt, i) { setTimeout(function () { wander.x = pt[0]; wander.y = pt[1]; }, i * 700); });
+  }
+  function fidget() {
+    setTimeout(fidget, 5000 + Math.random() * 6000);
+    var m = MOODS[cur];
+    if (RM || document.hidden || performance.now() - lastInteract < 4000 || faceOverride) return;
+    if (m.idle === 'shake' || m.eyes === 'closed' || m.eyes === 'flat') return;
+    if (bodyAnim && bodyAnim.playState === 'running') return;
+    var r = Math.random();
+    if (r < .4) glance([[-.8, .1], [.8, .1], [0, 0]]);
+    else if (r < .7 && topTab() >= 0) glance([[0, -1], [0, -1], [0, 0]]);
+    else react('wiggle');
+  }
+
   // wire up
   $('prev').addEventListener('click', function () { step(-1); });
   $('next').addEventListener('click', function () { step(1); });
-  $('flo').addEventListener('click', poke);
   window.addEventListener('keydown', function (e) {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+    noteInteract();
     var onButton = document.activeElement && document.activeElement.tagName === 'BUTTON';
     if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
     else if (e.key === ' ' && !onButton) { e.preventDefault(); poke(); }
+    else if (e.key === 's' || e.key === 'S') spin();
     else if (/^[1-7]$/.test(e.key)) { var i = +e.key - 1; if (i !== cur) go(i, i > cur ? 1 : -1); }
   });
+  setTimeout(blink, 2000);
+  setTimeout(fidget, 6000);
 
   // first frame: Breezy, at rest
   var m0 = MOODS[0];
